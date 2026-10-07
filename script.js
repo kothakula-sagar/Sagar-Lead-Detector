@@ -1,8 +1,12 @@
 const STORAGE_KEY = "driverLeadImporter.leads.v1";
 
-// Google Apps Script Web App URL
+/*
+  Google Apps Script Web App URL
+  Updated Version 2 deployment.
+*/
 const GOOGLE_SHEET_ENDPOINT =
-  "https://script.google.com/macros/s/AKfycbyqxnTMzDuxzIULSNIcWL1Pk5lD5WsXS-lk6Ppqlp0SNiZzo2C4U-CMO2yNJjVBEV6J1g/exec";
+  "https://script.google.com/macros/s/AKfycbyHnVPsx-jXiX7IIma1-0HQ9J3Rha9-0RFzAPTI4q_wWrRWpidT0OYFO_QQyrQgAn-BdA/exec";
+
 const HEADERS = {
   fullName: "Full name",
   phone: "Phone number",
@@ -63,11 +67,11 @@ function normalize(value) {
 }
 
 function findAnswer(text, labels) {
-  const raw = text.split(/\r?\n/);
+  const lines = text.split(/\r?\n/);
   const normalizedLabels = labels.map(normalize);
 
-  for (let i = 0; i < raw.length; i++) {
-    const line = normalize(raw[i]);
+  for (let i = 0; i < lines.length; i++) {
+    const line = normalize(lines[i]);
 
     if (!line) continue;
 
@@ -77,21 +81,15 @@ function findAnswer(text, labels) {
 
     if (!match) continue;
 
-    // Example:
-    // Full name: Manja Manju
-    const colon = raw[i].indexOf(":");
+    const colonIndex = lines[i].indexOf(":");
 
-    if (colon >= 0 && raw[i].slice(colon + 1).trim()) {
-      return raw[i].slice(colon + 1).trim();
+    if (colonIndex >= 0 && lines[i].slice(colonIndex + 1).trim()) {
+      return lines[i].slice(colonIndex + 1).trim();
     }
 
-    // Example:
-    // Full name
-    //
-    // Manja Manju
-    for (let j = i + 1; j < raw.length; j++) {
-      if (raw[j].trim()) {
-        return raw[j].trim();
+    for (let j = i + 1; j < lines.length; j++) {
+      if (lines[j].trim()) {
+        return lines[j].trim();
       }
     }
   }
@@ -154,7 +152,6 @@ function parseLead(text) {
     status: "New"
   };
 
-  // Clean phone number while keeping +
   lead.phone = lead.phone.replace(/[^\d+]/g, "");
 
   return lead;
@@ -316,35 +313,23 @@ function renderLeads() {
       (lead) => `
         <tr>
           <td>${escapeHtml(lead.fullName)}</td>
-
           <td>${escapeHtml(lead.phone)}</td>
-
           <td>${escapeHtml(lead.city)}</td>
-
           <td>${escapeHtml(lead.experience)}</td>
-
           <td>${escapeHtml(lead.licence)}</td>
-
           <td>${escapeHtml(lead.joining)}</td>
-
           <td>${escapeHtml(lead.jobInterest)}</td>
-
           <td>
             <input
               class="status"
               value="${escapeAttr(lead.status || "New")}"
-              onchange="updateStatus('${escapeAttr(
-                lead.id
-              )}', this.value)"
+              onchange="updateStatus('${escapeAttr(lead.id)}', this.value)"
             >
           </td>
-
           <td>
             <button
               class="danger"
-              onclick="deleteLead('${escapeAttr(
-                lead.id
-              )}')"
+              onclick="deleteLead('${escapeAttr(lead.id)}')"
             >
               Delete
             </button>
@@ -411,21 +396,17 @@ function processLead() {
       "Paste the lead data first.",
       "error"
     );
-
     return;
   }
 
   const lead = parseLead(text);
-
   const missing = validateLead(lead);
 
   if (missing.length > 0) {
     showMessage(
-      "Could not identify: " +
-        missing.join(", "),
+      "Could not identify: " + missing.join(", "),
       "error"
     );
-
     return;
   }
 
@@ -433,26 +414,18 @@ function processLead() {
 
   renderPreview(lead);
 
-  $("previewSection").classList.remove(
-    "hidden"
-  );
+  $("previewSection").classList.remove("hidden");
 
   if (isDuplicate(lead.phone)) {
     $("duplicateWarning").textContent =
       "This phone number already exists in your local saved leads. You can still add it if this is intentional.";
 
-    $("duplicateWarning").classList.remove(
-      "hidden"
-    );
+    $("duplicateWarning").classList.remove("hidden");
   } else {
-    $("duplicateWarning").classList.add(
-      "hidden"
-    );
+    $("duplicateWarning").classList.add("hidden");
   }
 
-  showMessage(
-    "Lead processed successfully."
-  );
+  showMessage("Lead processed successfully.");
 
   $("previewSection").scrollIntoView({
     behavior: "smooth",
@@ -463,103 +436,81 @@ function processLead() {
 
 /* =========================================================
    SEND LEAD TO GOOGLE SHEETS
+   Uses a normal HTML POST form.
+
+   This avoids the cross-origin fetch/CORS problem.
+   Google Apps Script reads the fields through e.parameter.
 ========================================================= */
 
-async function sendToGoogleSheet(lead) {
-  try {
-    /*
-      We send the payload as text/plain.
-
-      This avoids a browser CORS preflight request.
-      Google Apps Script receives the JSON through:
-
-      e.postData.contents
-    */
-
-    const response = await fetch(
-      GOOGLE_SHEET_ENDPOINT,
-      {
-        method: "POST",
-
-        mode: "cors",
-
-        redirect: "follow",
-
-        headers: {
-          "Content-Type":
-            "text/plain;charset=utf-8"
-        },
-
-        body: JSON.stringify({
-          fullName: lead.fullName,
-          phone: lead.phone,
-          city: lead.city,
-          experience: lead.experience,
-          licence: lead.licence,
-          joining: lead.joining,
-          jobInterest: lead.jobInterest,
-          status: lead.status
-        })
-      }
-    );
-
-    const responseText =
-      await response.text();
-
-    console.log(
-      "Google Apps Script response:",
-      responseText
-    );
-
-    let result = null;
-
+function sendToGoogleSheet(lead) {
+  return new Promise((resolve) => {
     try {
-      result = JSON.parse(
-        responseText
+      const form = document.createElement("form");
+
+      form.method = "POST";
+      form.action = GOOGLE_SHEET_ENDPOINT;
+      form.target = "googleSheetTarget";
+
+      form.style.display = "none";
+
+      const fields = {
+        fullName: lead.fullName,
+        phone: lead.phone,
+        city: lead.city,
+        experience: lead.experience,
+        licence: lead.licence,
+        joining: lead.joining,
+        jobInterest: lead.jobInterest,
+        status: lead.status || "New"
+      };
+
+      Object.entries(fields).forEach(
+        ([name, value]) => {
+          const input =
+            document.createElement("input");
+
+          input.type = "hidden";
+          input.name = name;
+          input.value = value || "";
+
+          form.appendChild(input);
+        }
       );
+
+      document.body.appendChild(form);
+
+      form.submit();
+
+      /*
+        Because Google Apps Script is on another domain,
+        the browser does not let this page read the iframe
+        response. The form submission itself sends the data.
+      */
+
+      setTimeout(() => {
+        form.remove();
+
+        showMessage(
+          "✅ Lead sent to Google Sheets successfully."
+        );
+
+        resolve(true);
+      }, 1200);
+
     } catch (error) {
-      console.warn(
-        "Response was not JSON:",
-        responseText
+      console.error(
+        "Google Sheets submission error:",
+        error
       );
-    }
 
-    if (
-      result &&
-      result.success === true
-    ) {
       showMessage(
-        "✅ Lead added successfully to Google Sheets."
+        "⚠ Lead saved locally, but Google Sheets submission failed.",
+        "error"
       );
 
-      return true;
+      resolve(false);
     }
-
-    showMessage(
-      "⚠ Lead saved locally, but Google Sheets did not confirm the upload.",
-      "error"
-    );
-
-    console.error(
-      "Google Apps Script returned:",
-      responseText
-    );
-
-    return false;
-
-  } catch (error) {
-    console.error(
-      "Google Sheets connection error:",
-      error
-    );
-
-    showMessage(
-      "⚠ Lead saved locally, but Google Sheets connection failed.",
-      "error"
-    );
-
-    return false;
-  }
+  });
 }
 
 
@@ -573,13 +524,11 @@ async function addCurrentLead() {
       "Process a lead first.",
       "error"
     );
-
     return;
   }
 
   const leads = getLeads();
 
-  // Check duplicate
   if (isDuplicate(currentLead.phone)) {
     const proceed = confirm(
       "This phone number already exists in local storage. Add this lead again?"
@@ -589,10 +538,6 @@ async function addCurrentLead() {
       return;
     }
   }
-
-  /*
-    Create unique local ID
-  */
 
   let leadId;
 
@@ -605,37 +550,25 @@ async function addCurrentLead() {
     leadId =
       Date.now() +
       "-" +
-      Math.random()
-        .toString(36)
-        .substring(2);
+      Math.random().toString(36).substring(2);
   }
 
   const lead = {
     ...currentLead,
-
     id: leadId,
-
-    createdAt:
-      new Date().toISOString()
+    createdAt: new Date().toISOString()
   };
 
   /*
-    First save locally.
-
-    This means even if Google Sheets has
-    a problem, the lead isn't lost.
+    Save a local backup first.
   */
-
   leads.push(lead);
-
   saveLeads(leads);
-
   renderLeads();
 
   /*
-    Send to Google Sheets
+    Then submit to Google Sheets.
   */
-
   if (GOOGLE_SHEET_ENDPOINT) {
     await sendToGoogleSheet(lead);
   } else {
@@ -645,17 +578,10 @@ async function addCurrentLead() {
     );
   }
 
-  /*
-    Clear input after saving
-  */
-
   $("rawInput").value = "";
-
   currentLead = null;
 
-  $("previewSection").classList.add(
-    "hidden"
-  );
+  $("previewSection").classList.add("hidden");
 }
 
 
@@ -667,10 +593,7 @@ function exportCSV() {
   const leads = getLeads();
 
   if (!leads.length) {
-    alert(
-      "There are no saved leads to export."
-    );
-
+    alert("There are no saved leads to export.");
     return;
   }
 
@@ -694,9 +617,7 @@ function exportCSV() {
       row
         .map(
           (value) =>
-            `"${String(
-              value ?? ""
-            ).replace(/"/g, '""')}"`
+            `"${String(value ?? "").replace(/"/g, '""')}"`
         )
         .join(",")
     )
@@ -704,26 +625,17 @@ function exportCSV() {
 
   const blob = new Blob(
     ["\ufeff" + csv],
-    {
-      type: "text/csv;charset=utf-8"
-    }
+    { type: "text/csv;charset=utf-8" }
   );
 
-  const url =
-    URL.createObjectURL(blob);
-
-  const link =
-    document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
 
   link.href = url;
-
-  link.download =
-    "drivers-leads.csv";
+  link.download = "drivers-leads.csv";
 
   document.body.appendChild(link);
-
   link.click();
-
   link.remove();
 
   URL.revokeObjectURL(url);
@@ -747,10 +659,7 @@ $("addBtn").addEventListener(
 $("editBtn").addEventListener(
   "click",
   () => {
-    $("previewSection").classList.add(
-      "hidden"
-    );
-
+    $("previewSection").classList.add("hidden");
     $("rawInput").focus();
   }
 );
@@ -759,15 +668,9 @@ $("clearInputBtn").addEventListener(
   "click",
   () => {
     $("rawInput").value = "";
-
-    $("message").className =
-      "message hidden";
-
+    $("message").className = "message hidden";
     currentLead = null;
-
-    $("previewSection").classList.add(
-      "hidden"
-    );
+    $("previewSection").classList.add("hidden");
   }
 );
 
@@ -775,9 +678,7 @@ $("sampleBtn").addEventListener(
   "click",
   () => {
     $("rawInput").value = sample;
-
-    $("message").className =
-      "message hidden";
+    $("message").className = "message hidden";
   }
 );
 
@@ -805,10 +706,7 @@ $("clearAllBtn").addEventListener(
         "Delete all locally saved leads? This cannot be undone."
       )
     ) {
-      localStorage.removeItem(
-        STORAGE_KEY
-      );
-
+      localStorage.removeItem(STORAGE_KEY);
       renderLeads();
 
       showMessage(

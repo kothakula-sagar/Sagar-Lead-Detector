@@ -1,53 +1,128 @@
-/**
- * Driver Lead Importer -> Google Sheets
- *
- * Spreadsheet:
- * 1VDNPJdYZVfwSxMMgeTx0sfei-gGyJCDlCV_4iTLynzY
- *
- * Tab:
- * Drivers data
- *
- * Deploy this Apps Script as a Web App:
- * Execute as: Me
- * Who has access: Anyone
- *
- * The HTML app submits to this URL through a hidden form, so end users
- * do not need to sign into Google.
- */
+const SPREADSHEET_ID =
+  "1VDNPJdYZVfwSxMMgeTx0sfei-gGyJCDlCV_4iTLynzY";
 
-const SPREADSHEET_ID = "1VDNPJdYZVfwSxMMgeTx0sfei-gGyJCDlCV_4iTLynzY";
 const SHEET_NAME = "Drivers data";
 
+
+/**
+ * Receives lead data from the Driver Lead Importer.
+ *
+ * The website submits a normal HTML form POST.
+ * Therefore Google Apps Script reads the fields from:
+ *
+ * e.parameter
+ */
 function doPost(e) {
   try {
-    const payload = JSON.parse(e.parameter.payload || "{}");
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+    console.log("POST received");
 
-    if (!sheet) throw new Error("Sheet tab not found: " + SHEET_NAME);
+    if (!e || !e.parameter) {
+      throw new Error("No form parameters received");
+    }
 
-    sheet.appendRow([
-      payload.fullName || "",
-      payload.phone || "",
-      payload.city || "",
-      payload.experience || "",
-      payload.licence || "",
-      payload.joining || "",
-      payload.jobInterest || "",
-      payload.status || "New"
-    ]);
+    console.log(
+      "Parameters: " + JSON.stringify(e.parameter)
+    );
+
+    const data = e.parameter;
+
+    const spreadsheet =
+      SpreadsheetApp.openById(SPREADSHEET_ID);
+
+    const sheet =
+      spreadsheet.getSheetByName(SHEET_NAME);
+
+    if (!sheet) {
+      throw new Error(
+        "Sheet not found: " + SHEET_NAME
+      );
+    }
+
+    const row = [
+      data.fullName || "",
+      data.phone || "",
+      data.city || "",
+      data.experience || "",
+      data.licence || "",
+      data.joining || "",
+      data.jobInterest || "",
+      data.status || "New"
+    ];
+
+    console.log(
+      "Row being inserted: " +
+      JSON.stringify(row)
+    );
+
+    sheet.appendRow(row);
+
+    console.log("Lead inserted successfully");
 
     return ContentService
-      .createTextOutput(JSON.stringify({ok: true}))
+      .createTextOutput(
+        JSON.stringify({
+          success: true,
+          message: "Lead added successfully"
+        })
+      )
       .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
+
+  } catch (error) {
+    console.error(
+      "ERROR: " + error.toString()
+    );
+
     return ContentService
-      .createTextOutput(JSON.stringify({ok: false, error: String(err)}))
+      .createTextOutput(
+        JSON.stringify({
+          success: false,
+          error: error.toString()
+        })
+      )
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
+
+/**
+ * Simple endpoint health check.
+ */
 function doGet() {
   return ContentService
-    .createTextOutput("Driver Lead Importer endpoint is running.")
+    .createTextOutput(
+      "Driver Lead Importer is running."
+    )
     .setMimeType(ContentService.MimeType.TEXT);
+}
+
+
+/**
+ * Manual spreadsheet permission test.
+ *
+ * Run this once from Apps Script if you want
+ * to confirm the script can write to the sheet.
+ */
+function testAppend() {
+  const spreadsheet =
+    SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  const sheet =
+    spreadsheet.getSheetByName(SHEET_NAME);
+
+  if (!sheet) {
+    throw new Error(
+      "Sheet not found: " + SHEET_NAME
+    );
+  }
+
+  sheet.appendRow([
+    "TEST DRIVER",
+    "+910000000000",
+    "Test City",
+    "2–5 years",
+    "Yes",
+    "Immediately",
+    "Test lead",
+    "TEST"
+  ]);
 }

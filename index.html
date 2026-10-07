@@ -7,89 +7,104 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="app">
-    <header class="topbar">
+  <main class="container">
+    <section class="hero">
       <div>
         <p class="eyebrow">DRIVER LEADS</p>
-        <h1>Lead Importer</h1>
-        <p class="subtitle">Paste a lead response, review it, and add it to your Drivers data sheet.</p>
+        <h1>Driver Lead Importer</h1>
+        <p class="subtitle">
+          Paste a lead response, review the extracted details, and save it to your local backup and Google Sheet.
+        </p>
       </div>
-      <div class="stats">
-        <div><strong id="leadCount">0</strong><span>Saved leads</span></div>
-      </div>
-    </header>
+    </section>
 
     <section class="card">
-      <div class="section-head">
+      <div class="section-header">
         <div>
           <h2>Paste Lead Data</h2>
-          <p>Question order does not matter.</p>
+          <p>Paste the complete form response below.</p>
         </div>
-        <button class="secondary" id="sampleBtn">Load Sample</button>
+        <button id="sampleBtn" class="secondary" type="button">Load Sample</button>
       </div>
-      <textarea id="rawInput" placeholder="Paste the complete lead text here..."></textarea>
+
+      <textarea id="rawInput" placeholder="Paste lead data here..."></textarea>
+
       <div class="actions">
-        <button class="primary" id="processBtn">Process Lead</button>
-        <button class="secondary" id="clearInputBtn">Clear</button>
+        <button id="processBtn" class="primary" type="button">Process Lead</button>
+        <button id="clearInputBtn" class="secondary" type="button">Clear</button>
       </div>
+
       <div id="message" class="message hidden"></div>
     </section>
 
-    <section class="card hidden" id="previewSection">
-      <div class="section-head">
+    <section id="previewSection" class="card hidden">
+      <div class="section-header">
         <div>
           <h2>Lead Preview</h2>
-          <p>Check the values before adding the lead.</p>
+          <p>Check the extracted information before saving.</p>
         </div>
-        <span class="badge" id="previewStatus">New</span>
+        <span id="previewStatus" class="badge">New</span>
       </div>
-      <div class="preview-grid" id="previewGrid"></div>
+
       <div id="duplicateWarning" class="warning hidden"></div>
+      <div id="previewGrid" class="preview-grid"></div>
+
       <div class="actions">
-        <button class="primary" id="addBtn">Add Lead</button>
-        <button class="secondary" id="editBtn">Edit Input</button>
+        <button id="addBtn" class="primary" type="button">Add Lead</button>
+        <button id="editBtn" class="secondary" type="button">Edit Input</button>
       </div>
     </section>
 
     <section class="card">
-      <div class="section-head">
+      <div class="section-header">
         <div>
           <h2>Saved Leads</h2>
-          <p>Local backup stored in this browser.</p>
+          <p>Local backup stored in this browser. <strong id="leadCount">0</strong> leads.</p>
         </div>
-        <div class="toolbar">
+
+        <div class="table-actions">
           <input id="searchInput" type="search" placeholder="Search name, phone or city">
-          <button class="secondary" id="exportBtn">Export CSV</button>
-          <button class="danger" id="clearAllBtn">Clear All</button>
+          <button id="exportBtn" class="secondary" type="button">Export CSV</button>
+          <button id="clearAllBtn" class="danger" type="button">Clear All</button>
         </div>
       </div>
+
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Full name</th>
-              <th>Phone number</th>
+              <th>Full Name</th>
+              <th>Phone Number</th>
               <th>City</th>
               <th>Experience</th>
               <th>Licence</th>
               <th>Joining</th>
-              <th>Job interest</th>
+              <th>Job Interest</th>
               <th>Status</th>
-              <th></th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody id="leadsBody"></tbody>
         </table>
       </div>
-      <div id="emptyState" class="empty">No leads saved yet.</div>
+
+      <div id="emptyState" class="empty-state hidden">
+        No saved leads found.
+      </div>
     </section>
   </main>
 
-  <!-- Hidden form used to send data to Google Apps Script without requiring user login or browser CORS access. -->
-  <iframe name="googleSheetTarget" id="googleSheetTarget" class="hidden-frame"></iframe>
-  <form id="sheetForm" target="googleSheetTarget" method="POST" class="hidden-form">
-    <input name="payload" id="sheetPayload">
-  </form>
+  <!--
+    Cross-origin form target.
+    The browser submits the form to Google Apps Script without
+    requiring the user to sign in to Google.
+  -->
+  <iframe
+    name="googleSheetTarget"
+    id="googleSheetTarget"
+    class="hidden-frame"
+    title="Google Sheet submission target">
+  </iframe>
 
   <script src="script.js"></script>
 </body>
