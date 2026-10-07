@@ -1,5 +1,5 @@
 const STORAGE_KEY = "driverLeadImporter.leads.v1";
-const GOOGLE_SHEET_ENDPOINT = ""; // Paste your deployed Google Apps Script Web App URL here.
+const GOOGLE_SHEET_ENDPOINT = "https://script.google.com/macros/s/AKfycbyqxnTMzDuxzIULSNIcWL1Pk5lD5WsXS-lk6Ppqlp0SNiZzo2C4U-CMO2yNJjVBEV6J1g/exec"; // Paste your deployed Google Apps Script Web App URL here.
 
 const HEADERS = {
   fullName: "Full name",
