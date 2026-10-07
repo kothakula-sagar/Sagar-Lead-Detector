@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Driver Lead Importer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">DRIVER LEADS</p>
+        <h1>Lead Importer</h1>
+        <p class="subtitle">Paste a lead response, review it, and add it to your Drivers data sheet.</p>
+      </div>
+      <div class="stats">
+        <div><strong id="leadCount">0</strong><span>Saved leads</span></div>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Paste Lead Data</h2>
+          <p>Question order does not matter.</p>
+        </div>
+        <button class="secondary" id="sampleBtn">Load Sample</button>
+      </div>
+      <textarea id="rawInput" placeholder="Paste the complete lead text here..."></textarea>
+      <div class="actions">
+        <button class="primary" id="processBtn">Process Lead</button>
+        <button class="secondary" id="clearInputBtn">Clear</button>
+      </div>
+      <div id="message" class="message hidden"></div>
+    </section>
+
+    <section class="card hidden" id="previewSection">
+      <div class="section-head">
+        <div>
+          <h2>Lead Preview</h2>
+          <p>Check the values before adding the lead.</p>
+        </div>
+        <span class="badge" id="previewStatus">New</span>
+      </div>
+      <div class="preview-grid" id="previewGrid"></div>
+      <div id="duplicateWarning" class="warning hidden"></div>
+      <div class="actions">
+        <button class="primary" id="addBtn">Add Lead</button>
+        <button class="secondary" id="editBtn">Edit Input</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Saved Leads</h2>
+          <p>Local backup stored in this browser.</p>
+        </div>
+        <div class="toolbar">
+          <input id="searchInput" type="search" placeholder="Search name, phone or city">
+          <button class="secondary" id="exportBtn">Export CSV</button>
+          <button class="danger" id="clearAllBtn">Clear All</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Full name</th>
+              <th>Phone number</th>
+              <th>City</th>
+              <th>Experience</th>
+              <th>Licence</th>
+              <th>Joining</th>
+              <th>Job interest</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="leadsBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty">No leads saved yet.</div>
+    </section>
+  </main>
+
+  <!-- Hidden form used to send data to Google Apps Script without requiring user login or browser CORS access. -->
+  <iframe name="googleSheetTarget" id="googleSheetTarget" class="hidden-frame"></iframe>
+  <form id="sheetForm" target="googleSheetTarget" method="POST" class="hidden-form">
+    <input name="payload" id="sheetPayload">
+  </form>
+
+  <script src="script.js"></script>
+</body>
+</html>
