@@ -1,27 +1,14 @@
-const STORAGE_KEY = "driverLeadImporter.leads.v1";
+const STORAGE_KEY = "driverLeadImporter.leads.v2";
 
 /*
-  Google Apps Script Web App URL
-  Updated Version 2 deployment.
+  Google Apps Script Web App endpoint.
+  The Apps Script routes Driver and Bike Rider leads
+  to their respective spreadsheets.
 */
 const GOOGLE_SHEET_ENDPOINT =
   "https://script.google.com/macros/s/AKfycbyHnVPsx-jXiX7IIma1-0HQ9J3Rha9-0RFzAPTI4q_wWrRWpidT0OYFO_QQyrQgAn-BdA/exec";
 
-const HEADERS = {
-  fullName: "Full name",
-  phone: "Phone number",
-  city: "City",
-  experience:
-    "How many years of commercial driving experience do you have?",
-  licence:
-    "Do you have a valid commercial/transport driving licence?",
-  joining: "When can you join?",
-  jobInterest:
-    "Are you currently looking for a commercial vehicle driving job?",
-  status: "Status"
-};
-
-const sample = `How many years of commercial driving experience do you have?
+const sampleDriver = `How many years of commercial driving experience do you have?
 
 2–5 years
 
@@ -49,13 +36,38 @@ City
 
 Kannur`;
 
+const sampleBikeRider = `Age
+
+36+
+
+Do you have a valid driving licence?
+
+Yess
+
+Do you have your own bike/motorcycle?
+
+Yes
+
+When can you join?
+
+Immediately
+
+Full name
+
+Mohd Shahid
+
+Phone number
+
++917905830575`;
+
 let currentLead = null;
+let activeFilter = "all";
 
 const $ = (id) => document.getElementById(id);
 
 
 /* =========================================================
-   TEXT HELPERS
+   HELPERS
 ========================================================= */
 
 function normalize(value) {
@@ -97,64 +109,163 @@ function findAnswer(text, labels) {
   return "";
 }
 
+function normalizeYesNo(value) {
+  const text = normalize(value);
+
+  if (
+    text === "yes" ||
+    text === "yess" ||
+    text === "y" ||
+    text.startsWith("yes ")
+  ) {
+    return "Yes";
+  }
+
+  if (
+    text === "no" ||
+    text === "n" ||
+    text.startsWith("no ")
+  ) {
+    return "No";
+  }
+
+  return String(value || "").trim();
+}
+
+function isImmediately(value) {
+  return normalize(value).includes("immediately");
+}
+
+function getPriority(licence, bike, joining) {
+  const licenceYes = normalizeYesNo(licence) === "Yes";
+  const bikeYes = normalizeYesNo(bike) === "Yes";
+  const immediate = isImmediately(joining);
+
+  if (licenceYes && bikeYes && immediate) {
+    return "High";
+  }
+
+  if (immediate) {
+    return "Medium";
+  }
+
+  if (licenceYes && bikeYes) {
+    return "Medium";
+  }
+
+  return "Low";
+}
+
 
 /* =========================================================
-   LEAD PARSER
+   LEAD TYPE DETECTION
 ========================================================= */
 
-function parseLead(text) {
-  const lead = {
+function detectLeadType(text) {
+  const normalizedText = normalize(text);
+
+  const isDriver =
+    normalizedText.includes(
+      normalize(
+        "How many years of commercial driving experience do you have?"
+      )
+    );
+
+  const isBikeRider =
+    normalizedText.includes(
+      normalize("Do you have your own bike/motorcycle?")
+    ) ||
+    (
+      normalizedText.includes(normalize("Age")) &&
+      normalizedText.includes(
+        normalize("Do you have a valid driving licence?")
+      )
+    );
+
+  if (isDriver && !isBikeRider) {
+    return "driver";
+  }
+
+  if (isBikeRider && !isDriver) {
+    return "bike_rider";
+  }
+
+  if (isDriver && isBikeRider) {
+    return "unknown";
+  }
+
+  return "unknown";
+}
+
+
+/* =========================================================
+   PARSERS
+========================================================= */
+
+function parseDriverLead(text) {
+  return {
+    leadType: "driver",
+    fullName: findAnswer(text, ["Full name", "Name", "Full Name"]),
+    phone: findAnswer(text, ["Phone number", "Phone", "Mobile number", "Mobile"]),
+    city: findAnswer(text, ["City", "Location", "Current city"]),
     experience: findAnswer(text, [
-      HEADERS.experience,
+      "How many years of commercial driving experience do you have?",
       "commercial driving experience",
       "driving experience"
     ]),
-
     licence: findAnswer(text, [
-      HEADERS.licence,
+      "Do you have a valid commercial/transport driving licence?",
       "valid commercial/transport driving licence",
       "valid commercial licence",
       "transport driving licence"
     ]),
-
     joining: findAnswer(text, [
-      HEADERS.joining,
+      "When can you join?",
       "when can you join",
       "when can i join"
     ]),
-
     jobInterest: findAnswer(text, [
-      HEADERS.jobInterest,
+      "Are you currently looking for a commercial vehicle driving job?",
       "currently looking for a commercial vehicle driving job",
       "looking for a commercial vehicle driving job",
       "looking for a driving job"
     ]),
-
-    fullName: findAnswer(text, [
-      "Full name",
-      "Name",
-      "Full Name"
-    ]),
-
-    phone: findAnswer(text, [
-      "Phone number",
-      "Phone",
-      "Mobile number",
-      "Mobile"
-    ]),
-
-    city: findAnswer(text, [
-      "City",
-      "Location",
-      "Current city"
-    ]),
-
-    status: "New"
+    status: "New",
+    priority: ""
   };
+}
 
-  lead.phone = lead.phone.replace(/[^\d+]/g, "");
+function parseBikeRiderLead(text) {
+  const licence = findAnswer(text, [
+    "Do you have a valid driving licence?",
+    "valid driving licence",
+    "driving licence"
+  ]);
 
-  return lead;
+  const bike = findAnswer(text, [
+    "Do you have your own bike/motorcycle?",
+    "own bike/motorcycle",
+    "own bike",
+    "own motorcycle"
+  ]);
+
+  const joining = findAnswer(text, [
+    "When can you join?",
+    "when can you join",
+    "when can i join"
+  ]);
+
+  return {
+    leadType: "bike_rider",
+    fullName: findAnswer(text, ["Full name", "Name", "Full Name"]),
+    phone: findAnswer(text, ["Phone number", "Phone", "Mobile number", "Mobile"]),
+    age: findAnswer(text, ["Age", "Your age"]),
+    licence,
+    bike,
+    joining,
+    priority: getPriority(licence, bike, joining),
+    status: "Not Open"
+  };
 }
 
 
@@ -167,11 +278,21 @@ function validateLead(lead) {
 
   if (!lead.fullName) missing.push("Full name");
   if (!lead.phone) missing.push("Phone number");
-  if (!lead.city) missing.push("City");
-  if (!lead.experience) missing.push("Experience");
-  if (!lead.licence) missing.push("Licence");
-  if (!lead.joining) missing.push("Joining");
-  if (!lead.jobInterest) missing.push("Job interest");
+
+  if (lead.leadType === "driver") {
+    if (!lead.city) missing.push("City");
+    if (!lead.experience) missing.push("Experience");
+    if (!lead.licence) missing.push("Licence");
+    if (!lead.joining) missing.push("Joining");
+    if (!lead.jobInterest) missing.push("Job interest");
+  }
+
+  if (lead.leadType === "bike_rider") {
+    if (!lead.age) missing.push("Age");
+    if (!lead.licence) missing.push("Licence");
+    if (!lead.bike) missing.push("Bike");
+    if (!lead.joining) missing.push("Joining");
+  }
 
   return missing;
 }
@@ -183,7 +304,39 @@ function validateLead(lead) {
 
 function getLeads() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    const current =
+      JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+
+    /*
+      Recover old leads saved under the previous storage key.
+      Old leads were Drivers, so classify them as Driver.
+    */
+    const old =
+      JSON.parse(
+        localStorage.getItem(
+          "driverLeadImporter.leads.v1"
+        )
+      ) || [];
+
+    const migratedOld = old.map((lead) => ({
+      ...lead,
+      leadType: lead.leadType || "driver",
+      priority: lead.priority || "",
+      status: lead.status || "New"
+    }));
+
+    const existingIds = new Set(
+      current.map((lead) => lead.id)
+    );
+
+    const merged = [
+      ...current,
+      ...migratedOld.filter(
+        (lead) => !existingIds.has(lead.id)
+      )
+    ];
+
+    return merged;
   } catch (error) {
     console.error("Could not read saved leads:", error);
     return [];
@@ -191,7 +344,10 @@ function getLeads() {
 }
 
 function saveLeads(leads) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(leads)
+  );
 }
 
 
@@ -219,7 +375,7 @@ function isDuplicate(phone) {
 
 
 /* =========================================================
-   MESSAGE
+   UI
 ========================================================= */
 
 function showMessage(text, type = "ok") {
@@ -228,11 +384,6 @@ function showMessage(text, type = "ok") {
   message.textContent = text;
   message.className = `message ${type}`;
 }
-
-
-/* =========================================================
-   HTML ESCAPING
-========================================================= */
 
 function escapeHtml(value) {
   return String(value ?? "").replace(
@@ -251,22 +402,46 @@ function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#096;");
 }
 
-
-/* =========================================================
-   PREVIEW
-========================================================= */
+function leadTypeLabel(type) {
+  return type === "bike_rider"
+    ? "🏍️ Bike Rider"
+    : "🚛 Driver";
+}
 
 function renderPreview(lead) {
-  const fields = [
-    ["Full name", lead.fullName],
-    ["Phone number", lead.phone],
-    ["City", lead.city],
-    ["Experience", lead.experience],
-    ["Commercial licence", lead.licence],
-    ["When can join", lead.joining],
-    ["Job interest", lead.jobInterest],
-    ["Status", lead.status]
-  ];
+  let fields = [];
+
+  if (lead.leadType === "driver") {
+    fields = [
+      ["Lead Type", "🚛 Driver"],
+      ["Full name", lead.fullName],
+      ["Phone number", lead.phone],
+      ["City", lead.city],
+      ["Experience", lead.experience],
+      ["Commercial licence", lead.licence],
+      ["When can join", lead.joining],
+      ["Job interest", lead.jobInterest],
+      ["Status", lead.status]
+    ];
+  } else {
+    fields = [
+      ["Lead Type", "🏍️ Bike Rider"],
+      ["Full name", lead.fullName],
+      ["Phone number", lead.phone],
+      ["Age", lead.age],
+      ["Licence", lead.licence],
+      ["Own bike", lead.bike],
+      ["Joining time", lead.joining],
+      ["Priority", lead.priority],
+      ["Status", lead.status]
+    ];
+  }
+
+  $("leadTypeBadge").textContent =
+    leadTypeLabel(lead.leadType);
+
+  $("previewTitle").textContent =
+    `${leadTypeLabel(lead.leadType)} Lead Detected`;
 
   $("previewGrid").innerHTML = fields
     .map(
@@ -279,7 +454,8 @@ function renderPreview(lead) {
     )
     .join("");
 
-  $("previewStatus").textContent = lead.status || "New";
+  $("previewStatus").textContent =
+    lead.status || "New";
 }
 
 
@@ -293,61 +469,136 @@ function renderLeads() {
 
   const allLeads = getLeads();
 
-  const leads = allLeads.filter((lead) => {
+  const filtered = allLeads.filter((lead) => {
+    const typeMatches =
+      activeFilter === "all" ||
+      (lead.leadType || "driver") === activeFilter;
+
+    if (!typeMatches) return false;
+
     if (!query) return true;
 
     return [
       lead.fullName,
       lead.phone,
       lead.city,
-      lead.status
+      lead.age,
+      lead.experience,
+      lead.status,
+      lead.priority,
+      lead.leadType
     ].some((value) =>
       normalize(value).includes(query)
     );
   });
 
-  $("leadCount").textContent = allLeads.length;
+  $("leadCount").textContent =
+    allLeads.length;
 
-  $("leadsBody").innerHTML = leads
-    .map(
-      (lead) => `
-        <tr>
-          <td>${escapeHtml(lead.fullName)}</td>
-          <td>${escapeHtml(lead.phone)}</td>
-          <td>${escapeHtml(lead.city)}</td>
-          <td>${escapeHtml(lead.experience)}</td>
-          <td>${escapeHtml(lead.licence)}</td>
-          <td>${escapeHtml(lead.joining)}</td>
-          <td>${escapeHtml(lead.jobInterest)}</td>
-          <td>
-            <input
-              class="status"
-              value="${escapeAttr(lead.status || "New")}"
-              onchange="updateStatus('${escapeAttr(lead.id)}', this.value)"
-            >
-          </td>
-          <td>
-            <button
-              class="danger"
-              onclick="deleteLead('${escapeAttr(lead.id)}')"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      `
-    )
-    .join("");
+  $("leadsBody").innerHTML =
+    filtered
+      .map((lead) => {
+        const isBike =
+          lead.leadType === "bike_rider";
+
+        const typeClass = isBike
+          ? "type-bike"
+          : "type-driver";
+
+        const ageExperience = isBike
+          ? lead.age || ""
+          : lead.experience || "";
+
+        const city = isBike
+          ? "-"
+          : lead.city || "";
+
+        const bike = isBike
+          ? lead.bike || ""
+          : "-";
+
+        const priority = isBike
+          ? lead.priority || ""
+          : "-";
+
+        const priorityClass =
+          priority === "High"
+            ? "priority-high"
+            : priority === "Medium"
+              ? "priority-medium"
+              : priority === "Low"
+                ? "priority-low"
+                : "";
+
+        return `
+          <tr>
+            <td class="${typeClass}">
+              ${escapeHtml(leadTypeLabel(lead.leadType))}
+            </td>
+
+            <td>${escapeHtml(lead.fullName)}</td>
+
+            <td>${escapeHtml(lead.phone)}</td>
+
+            <td>${escapeHtml(ageExperience)}</td>
+
+            <td>${escapeHtml(city)}</td>
+
+            <td>${escapeHtml(lead.licence)}</td>
+
+            <td>${escapeHtml(bike)}</td>
+
+            <td>${escapeHtml(lead.joining)}</td>
+
+            <td class="${priorityClass}">
+              ${escapeHtml(priority)}
+            </td>
+
+            <td>
+              <input
+                class="status"
+                value="${escapeAttr(lead.status || (isBike ? "Not Open" : "New"))}"
+                onchange="updateStatus('${escapeAttr(lead.id)}', this.value)"
+              >
+            </td>
+
+            <td>
+              <button
+                class="danger"
+                onclick="deleteLead('${escapeAttr(lead.id)}')"
+              >
+                Delete
+              </button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
 
   $("emptyState").classList.toggle(
     "hidden",
-    leads.length !== 0
+    filtered.length !== 0
   );
+}
+
+function setFilter(filter) {
+  activeFilter = filter;
+
+  document
+    .querySelectorAll(".filter-btn")
+    .forEach((button) => {
+      button.classList.toggle(
+        "active",
+        button.dataset.filter === filter
+      );
+    });
+
+  renderLeads();
 }
 
 
 /* =========================================================
-   UPDATE STATUS
+   UPDATE / DELETE
 ========================================================= */
 
 function updateStatus(id, status) {
@@ -364,11 +615,6 @@ function updateStatus(id, status) {
   saveLeads(leads);
   renderLeads();
 }
-
-
-/* =========================================================
-   DELETE LEAD
-========================================================= */
 
 function deleteLead(id) {
   if (!confirm("Delete this saved lead?")) {
@@ -399,33 +645,58 @@ function processLead() {
     return;
   }
 
-  const lead = parseLead(text);
-  const missing = validateLead(lead);
+  const leadType = detectLeadType(text);
 
-  if (missing.length > 0) {
+  if (leadType === "unknown") {
     showMessage(
-      "Could not identify: " + missing.join(", "),
+      "Lead type could not be detected. Make sure the pasted form contains either the commercial driving experience question or the bike rider questions.",
       "error"
     );
     return;
   }
 
+  const lead =
+    leadType === "driver"
+      ? parseDriverLead(text)
+      : parseBikeRiderLead(text);
+
+  const missing = validateLead(lead);
+
+  if (missing.length > 0) {
+    showMessage(
+      `${leadTypeLabel(leadType)} detected, but missing: ${missing.join(", ")}`,
+      "error"
+    );
+    return;
+  }
+
+  lead.phone =
+    lead.phone.replace(/[^\d+]/g, "");
+
   currentLead = lead;
 
   renderPreview(lead);
 
-  $("previewSection").classList.remove("hidden");
+  $("previewSection").classList.remove(
+    "hidden"
+  );
 
   if (isDuplicate(lead.phone)) {
     $("duplicateWarning").textContent =
       "This phone number already exists in your local saved leads. You can still add it if this is intentional.";
 
-    $("duplicateWarning").classList.remove("hidden");
+    $("duplicateWarning").classList.remove(
+      "hidden"
+    );
   } else {
-    $("duplicateWarning").classList.add("hidden");
+    $("duplicateWarning").classList.add(
+      "hidden"
+    );
   }
 
-  showMessage("Lead processed successfully.");
+  showMessage(
+    `${leadTypeLabel(leadType)} lead detected successfully.`
+  );
 
   $("previewSection").scrollIntoView({
     behavior: "smooth",
@@ -435,33 +706,58 @@ function processLead() {
 
 
 /* =========================================================
-   SEND LEAD TO GOOGLE SHEETS
-   Uses a normal HTML POST form.
-
-   This avoids the cross-origin fetch/CORS problem.
-   Google Apps Script reads the fields through e.parameter.
+   SEND TO GOOGLE APPS SCRIPT
 ========================================================= */
 
 function sendToGoogleSheet(lead) {
   return new Promise((resolve) => {
     try {
-      const form = document.createElement("form");
+      const form =
+        document.createElement("form");
 
       form.method = "POST";
       form.action = GOOGLE_SHEET_ENDPOINT;
       form.target = "googleSheetTarget";
-
       form.style.display = "none";
 
+      /*
+        leadType tells Apps Script which spreadsheet
+        should receive this lead.
+      */
+
       const fields = {
+        leadType: lead.leadType,
         fullName: lead.fullName,
         phone: lead.phone,
-        city: lead.city,
-        experience: lead.experience,
-        licence: lead.licence,
-        joining: lead.joining,
-        jobInterest: lead.jobInterest,
-        status: lead.status || "New"
+
+        city: lead.city || "",
+
+        experience:
+          lead.experience || "",
+
+        age:
+          lead.age || "",
+
+        licence:
+          lead.licence || "",
+
+        bike:
+          lead.bike || "",
+
+        joining:
+          lead.joining || "",
+
+        jobInterest:
+          lead.jobInterest || "",
+
+        priority:
+          lead.priority || "",
+
+        status:
+          lead.status ||
+          (lead.leadType === "bike_rider"
+            ? "Not Open"
+            : "New")
       };
 
       Object.entries(fields).forEach(
@@ -478,20 +774,13 @@ function sendToGoogleSheet(lead) {
       );
 
       document.body.appendChild(form);
-
       form.submit();
-
-      /*
-        Because Google Apps Script is on another domain,
-        the browser does not let this page read the iframe
-        response. The form submission itself sends the data.
-      */
 
       setTimeout(() => {
         form.remove();
 
         showMessage(
-          "✅ Lead sent to Google Sheets successfully."
+          `✅ ${leadTypeLabel(lead.leadType)} lead sent to Google Sheets successfully.`
         );
 
         resolve(true);
@@ -534,54 +823,37 @@ async function addCurrentLead() {
       "This phone number already exists in local storage. Add this lead again?"
     );
 
-    if (!proceed) {
-      return;
-    }
-  }
-
-  let leadId;
-
-  if (
-    typeof crypto !== "undefined" &&
-    crypto.randomUUID
-  ) {
-    leadId = crypto.randomUUID();
-  } else {
-    leadId =
-      Date.now() +
-      "-" +
-      Math.random().toString(36).substring(2);
+    if (!proceed) return;
   }
 
   const lead = {
     ...currentLead,
-    id: leadId,
-    createdAt: new Date().toISOString()
+    id:
+      typeof crypto !== "undefined" &&
+      crypto.randomUUID
+        ? crypto.randomUUID()
+        : Date.now() +
+          "-" +
+          Math.random()
+            .toString(36)
+            .substring(2),
+    createdAt:
+      new Date().toISOString()
   };
 
-  /*
-    Save a local backup first.
-  */
   leads.push(lead);
+
   saveLeads(leads);
   renderLeads();
 
-  /*
-    Then submit to Google Sheets.
-  */
-  if (GOOGLE_SHEET_ENDPOINT) {
-    await sendToGoogleSheet(lead);
-  } else {
-    showMessage(
-      "Lead saved locally. Google Sheet endpoint is not configured yet.",
-      "error"
-    );
-  }
+  await sendToGoogleSheet(lead);
 
   $("rawInput").value = "";
   currentLead = null;
 
-  $("previewSection").classList.add("hidden");
+  $("previewSection").classList.add(
+    "hidden"
+  );
 }
 
 
@@ -593,22 +865,43 @@ function exportCSV() {
   const leads = getLeads();
 
   if (!leads.length) {
-    alert("There are no saved leads to export.");
+    alert(
+      "There are no saved leads to export."
+    );
     return;
   }
 
   const rows = [
-    Object.values(HEADERS),
+    [
+      "Lead Type",
+      "Name",
+      "Phone",
+      "Age",
+      "Experience",
+      "City",
+      "Licence",
+      "Bike",
+      "Joining",
+      "Job Interest",
+      "Priority",
+      "Status"
+    ],
 
     ...leads.map((lead) => [
+      lead.leadType === "bike_rider"
+        ? "Bike Rider"
+        : "Driver",
       lead.fullName,
       lead.phone,
-      lead.city,
-      lead.experience,
-      lead.licence,
-      lead.joining,
-      lead.jobInterest,
-      lead.status
+      lead.age || "",
+      lead.experience || "",
+      lead.city || "",
+      lead.licence || "",
+      lead.bike || "",
+      lead.joining || "",
+      lead.jobInterest || "",
+      lead.priority || "",
+      lead.status || ""
     ])
   ];
 
@@ -625,14 +918,19 @@ function exportCSV() {
 
   const blob = new Blob(
     ["\ufeff" + csv],
-    { type: "text/csv;charset=utf-8" }
+    {
+      type: "text/csv;charset=utf-8"
+    }
   );
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const url =
+    URL.createObjectURL(blob);
+
+  const link =
+    document.createElement("a");
 
   link.href = url;
-  link.download = "drivers-leads.csv";
+  link.download = "all-driver-bike-rider-leads.csv";
 
   document.body.appendChild(link);
   link.click();
@@ -643,7 +941,7 @@ function exportCSV() {
 
 
 /* =========================================================
-   BUTTON EVENTS
+   EVENTS
 ========================================================= */
 
 $("processBtn").addEventListener(
@@ -659,7 +957,10 @@ $("addBtn").addEventListener(
 $("editBtn").addEventListener(
   "click",
   () => {
-    $("previewSection").classList.add("hidden");
+    $("previewSection").classList.add(
+      "hidden"
+    );
+
     $("rawInput").focus();
   }
 );
@@ -668,17 +969,32 @@ $("clearInputBtn").addEventListener(
   "click",
   () => {
     $("rawInput").value = "";
-    $("message").className = "message hidden";
+    $("message").className =
+      "message hidden";
     currentLead = null;
-    $("previewSection").classList.add("hidden");
+
+    $("previewSection").classList.add(
+      "hidden"
+    );
   }
 );
 
 $("sampleBtn").addEventListener(
   "click",
   () => {
-    $("rawInput").value = sample;
-    $("message").className = "message hidden";
+    /*
+      Toggle sample type so you can quickly test both.
+    */
+    const current =
+      $("rawInput").value.trim();
+
+    $("rawInput").value =
+      current === sampleDriver
+        ? sampleBikeRider
+        : sampleDriver;
+
+    $("message").className =
+      "message hidden";
   }
 );
 
@@ -697,16 +1013,21 @@ $("clearAllBtn").addEventListener(
   () => {
     const leads = getLeads();
 
-    if (!leads.length) {
-      return;
-    }
+    if (!leads.length) return;
 
     if (
       confirm(
         "Delete all locally saved leads? This cannot be undone."
       )
     ) {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(
+        STORAGE_KEY
+      );
+
+      localStorage.removeItem(
+        "driverLeadImporter.leads.v1"
+      );
+
       renderLeads();
 
       showMessage(
@@ -715,6 +1036,17 @@ $("clearAllBtn").addEventListener(
     }
   }
 );
+
+document
+  .querySelectorAll(".filter-btn")
+  .forEach((button) => {
+    button.addEventListener(
+      "click",
+      () => setFilter(
+        button.dataset.filter
+      )
+    );
+  });
 
 
 /* =========================================================

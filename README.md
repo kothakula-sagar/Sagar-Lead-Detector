@@ -1,82 +1,100 @@
-# Driver Lead Importer
+# Sagar Lead Detector
 
-A simple lead importer for driver recruitment leads.
+One static website for both Driver and Bike Rider leads.
 
-## What it does
+## Automatic lead detection
 
-1. Paste a lead response into the website.
-2. Extracts:
-   - Full name
-   - Phone number
-   - City
-   - Commercial driving experience
-   - Commercial/transport licence
-   - Joining time
-   - Job interest
-   - Status
-3. Shows a preview.
-4. Saves a local browser backup using localStorage.
-5. Sends the lead to the configured Google Sheet using a normal HTML form POST.
-6. Exports locally saved leads to CSV.
+Driver:
+- Detects the commercial driving experience question.
+- Sends the lead to the Driver spreadsheet.
 
-## Google Sheet
+Bike Rider:
+- Detects the bike/motorcycle question and driving licence question.
+- Sends the lead to the Bike Rider spreadsheet.
+
+## Driver Google Sheet
 
 Spreadsheet ID:
+1VDNPJdYZVfwSxMMgeTx0sfei-gGyJCDlCV_4iTLynzY
 
-`1VDNPJdYZVfwSxMMgeTx0sfei-gGyJCDlCV_4iTLynzY`
-
-Sheet tab:
-
-`Drivers data`
+Tab:
+Drivers data
 
 Columns:
+A Full name
+B Phone number
+C City
+D Experience
+E Licence
+F Joining
+G Job Interest
+H Status
 
-A. Full name  
-B. Phone number  
-C. City  
-D. How many years of commercial driving experience do you have?  
-E. Do you have a valid commercial/transport driving licence?  
-F. When can you join?  
-G. Are you currently looking for a commercial vehicle driving job?  
-H. Status
+## Bike Rider Google Sheet
 
-## Google Apps Script
+Spreadsheet ID:
+1lMj2VZb4g7-h-ZJ4815PKFJG28joqXtFmX76GOol5e8
 
-Use the `google-apps-script/Code.gs` file in this project.
+Tab:
+Cleaned Leads
 
-Deploy it as a Web App:
+Columns:
+A Name
+B Phone
+C Age
+D Licence
+E Bike
+F Joining Time
+G Priority
+H Status
 
-- Execute as: Me
-- Who has access: Anyone
+## Bike Rider priority rules
 
-The current website endpoint is already configured in `script.js`.
+1. Licence Yes + Bike Yes + Immediately = High
+2. Any No + Immediately = Medium
+3. Licence Yes + Bike Yes + not Immediately = Medium
+4. Any No + not Immediately = Low
 
-Current endpoint:
+The parser normalizes answers such as Yes, yes, YES and Yess to Yes.
 
-https://script.google.com/macros/s/AKfycbyHnVPsx-jXiX7IIma1-0HQ9J3Rha9-0RFzAPTI4q_wWrRWpidT0OYFO_QQyrQgAn-BdA/exec
+## Default status
 
-## Important
+Driver:
+New
 
-After changing `Code.gs`, update the existing Web App deployment:
+Bike Rider:
+Not Open
 
+## Deployment
+
+The existing Google Apps Script Web App endpoint is already configured in script.js.
+
+After replacing Code.gs:
 Deploy → Manage deployments → Edit → New version → Deploy
 
-Do not create a completely separate deployment unless necessary.
+Keep:
+Execute as: Me
+Who has access: Anyone
 
-## Manual test
+No end-user Google login is required.
 
-In Apps Script, select `testAppend` and click Run.
+## UI
 
-It should add:
+The Saved Leads table includes:
+- All Leads filter
+- Drivers filter
+- Bike Riders filter
+- Search
+- CSV export
+- Status editing
+- Delete
 
-TEST DRIVER | +910000000000 | Test City | 2–5 years | Yes | Immediately | Test lead | TEST
+The table has a fixed maximum height with vertical scrolling and a sticky header, so a large number of leads will not make the whole page enormous.
 
-to the `Drivers data` sheet.
+## Testing
 
-## Website deployment
+Apps Script functions:
+- testDriverAppend()
+- testBikeRiderAppend()
 
-The project can be hosted on GitHub Pages or any static hosting service.
-
-No Google login is required for the end user.
-
-The Google Apps Script Web App handles the spreadsheet write.
+Run them manually if you want to verify write permissions to each spreadsheet.

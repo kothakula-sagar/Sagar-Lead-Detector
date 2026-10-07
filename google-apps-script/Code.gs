@@ -1,75 +1,168 @@
-const SPREADSHEET_ID =
+/*
+  Sagar Lead Detector
+  Routes Driver and Bike Rider leads
+  to separate Google Sheets.
+*/
+
+/* Existing Driver sheet */
+const DRIVER_SPREADSHEET_ID =
   "1VDNPJdYZVfwSxMMgeTx0sfei-gGyJCDlCV_4iTLynzY";
 
-const SHEET_NAME = "Drivers data";
+const DRIVER_SHEET_NAME =
+  "Drivers data";
 
 
-/**
- * Receives lead data from the Driver Lead Importer.
- *
- * The website submits a normal HTML form POST.
- * Therefore Google Apps Script reads the fields from:
- *
- * e.parameter
- */
+/* Bike Rider sheet */
+const BIKE_SPREADSHEET_ID =
+  "1lMj2VZb4g7-h-ZJ4815PKFJG28joqXtFmX76GOol5e8";
+
+const BIKE_SHEET_NAME =
+  "Cleaned Leads";
+
+
 function doPost(e) {
   try {
-    console.log("POST received");
-
     if (!e || !e.parameter) {
-      throw new Error("No form parameters received");
-    }
-
-    console.log(
-      "Parameters: " + JSON.stringify(e.parameter)
-    );
-
-    const data = e.parameter;
-
-    const spreadsheet =
-      SpreadsheetApp.openById(SPREADSHEET_ID);
-
-    const sheet =
-      spreadsheet.getSheetByName(SHEET_NAME);
-
-    if (!sheet) {
       throw new Error(
-        "Sheet not found: " + SHEET_NAME
+        "No form parameters received"
       );
     }
 
-    const row = [
-      data.fullName || "",
-      data.phone || "",
-      data.city || "",
-      data.experience || "",
-      data.licence || "",
-      data.joining || "",
-      data.jobInterest || "",
-      data.status || "New"
-    ];
+    const data = e.parameter;
+
+    const leadType =
+      String(data.leadType || "")
+        .toLowerCase()
+        .trim();
 
     console.log(
-      "Row being inserted: " +
-      JSON.stringify(row)
+      "Lead type: " + leadType
     );
 
-    sheet.appendRow(row);
+    console.log(
+      "Received data: " +
+      JSON.stringify(data)
+    );
 
-    console.log("Lead inserted successfully");
+
+    /* =====================================================
+       DRIVER
+    ===================================================== */
+
+    if (leadType === "driver") {
+
+      const spreadsheet =
+        SpreadsheetApp.openById(
+          DRIVER_SPREADSHEET_ID
+        );
+
+      const sheet =
+        spreadsheet.getSheetByName(
+          DRIVER_SHEET_NAME
+        );
+
+      if (!sheet) {
+        throw new Error(
+          "Driver sheet not found: " +
+          DRIVER_SHEET_NAME
+        );
+      }
+
+      const row = [
+        data.fullName || "",
+        data.phone || "",
+        data.city || "",
+        data.experience || "",
+        data.licence || "",
+        data.joining || "",
+        data.jobInterest || "",
+        data.status || "New"
+      ];
+
+      sheet.appendRow(row);
+
+      console.log(
+        "Driver lead inserted: " +
+        JSON.stringify(row)
+      );
+    }
+
+
+    /* =====================================================
+       BIKE RIDER
+    ===================================================== */
+
+    else if (
+      leadType === "bike_rider"
+    ) {
+
+      const spreadsheet =
+        SpreadsheetApp.openById(
+          BIKE_SPREADSHEET_ID
+        );
+
+      const sheet =
+        spreadsheet.getSheetByName(
+          BIKE_SHEET_NAME
+        );
+
+      if (!sheet) {
+        throw new Error(
+          "Bike Rider sheet not found: " +
+          BIKE_SHEET_NAME
+        );
+      }
+
+      const row = [
+        data.fullName || "",
+        data.phone || "",
+        data.age || "",
+        data.licence || "",
+        data.bike || "",
+        data.joining || "",
+        data.priority || "Low",
+        data.status || "Not Open"
+      ];
+
+      sheet.appendRow(row);
+
+      console.log(
+        "Bike Rider lead inserted: " +
+        JSON.stringify(row)
+      );
+    }
+
+
+    /* =====================================================
+       UNKNOWN
+    ===================================================== */
+
+    else {
+      throw new Error(
+        "Unknown lead type: " +
+        leadType
+      );
+    }
+
 
     return ContentService
       .createTextOutput(
         JSON.stringify({
           success: true,
-          message: "Lead added successfully"
+          leadType: leadType,
+          message:
+            "Lead added successfully"
         })
       )
-      .setMimeType(ContentService.MimeType.JSON);
+      .setMimeType(
+        ContentService.MimeType.JSON
+      );
 
   } catch (error) {
+
     console.error(
-      "ERROR: " + error.toString()
+      "ERROR: " +
+      error.toString()
     );
 
     return ContentService
@@ -79,39 +172,42 @@ function doPost(e) {
           error: error.toString()
         })
       )
-      .setMimeType(ContentService.MimeType.JSON);
+      .setMimeType(
+        ContentService.MimeType.JSON
+      );
   }
 }
 
 
-/**
- * Simple endpoint health check.
- */
 function doGet() {
   return ContentService
     .createTextOutput(
-      "Driver Lead Importer is running."
+      "Sagar Lead Detector is running."
     )
-    .setMimeType(ContentService.MimeType.TEXT);
+    .setMimeType(
+      ContentService.MimeType.TEXT
+    );
 }
 
 
-/**
- * Manual spreadsheet permission test.
- *
- * Run this once from Apps Script if you want
- * to confirm the script can write to the sheet.
- */
-function testAppend() {
+/*
+  Manual Driver test.
+*/
+function testDriverAppend() {
+
   const spreadsheet =
-    SpreadsheetApp.openById(SPREADSHEET_ID);
+    SpreadsheetApp.openById(
+      DRIVER_SPREADSHEET_ID
+    );
 
   const sheet =
-    spreadsheet.getSheetByName(SHEET_NAME);
+    spreadsheet.getSheetByName(
+      DRIVER_SHEET_NAME
+    );
 
   if (!sheet) {
     throw new Error(
-      "Sheet not found: " + SHEET_NAME
+      "Driver sheet not found"
     );
   }
 
@@ -123,6 +219,40 @@ function testAppend() {
     "Yes",
     "Immediately",
     "Test lead",
-    "TEST"
+    "New"
+  ]);
+}
+
+
+/*
+  Manual Bike Rider test.
+*/
+function testBikeRiderAppend() {
+
+  const spreadsheet =
+    SpreadsheetApp.openById(
+      BIKE_SPREADSHEET_ID
+    );
+
+  const sheet =
+    spreadsheet.getSheetByName(
+      BIKE_SHEET_NAME
+    );
+
+  if (!sheet) {
+    throw new Error(
+      "Bike Rider sheet not found"
+    );
+  }
+
+  sheet.appendRow([
+    "TEST BIKE RIDER",
+    "+910000000001",
+    "36+",
+    "Yes",
+    "Yes",
+    "Immediately",
+    "High",
+    "Not Open"
   ]);
 }

@@ -3,19 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Driver Lead Importer</title>
+  <title>Sagar Lead Detector</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="container">
     <section class="hero">
-      <div>
-        <p class="eyebrow">DRIVER LEADS</p>
-        <h1>Driver Lead Importer</h1>
-        <p class="subtitle">
-          Paste a lead response, review the extracted details, and save it to your local backup and Google Sheet.
-        </p>
-      </div>
+      <p class="eyebrow">LEAD DETECTOR & IMPORTER</p>
+      <h1>Sagar Lead Detector</h1>
+      <p class="subtitle">
+        Paste a lead response. The system detects whether it is a Driver or Bike Rider,
+        calculates priority for Bike Riders, and sends it to the correct Google Sheet.
+      </p>
     </section>
 
     <section class="card">
@@ -40,8 +39,9 @@
     <section id="previewSection" class="card hidden">
       <div class="section-header">
         <div>
-          <h2>Lead Preview</h2>
-          <p>Check the extracted information before saving.</p>
+          <span id="leadTypeBadge" class="type-badge"></span>
+          <h2 id="previewTitle">Lead Preview</h2>
+          <p>Check the detected lead type and extracted information.</p>
         </div>
         <span id="previewStatus" class="badge">New</span>
       </div>
@@ -56,30 +56,38 @@
     </section>
 
     <section class="card">
-      <div class="section-header">
+      <div class="section-header table-heading">
         <div>
           <h2>Saved Leads</h2>
-          <p>Local backup stored in this browser. <strong id="leadCount">0</strong> leads.</p>
+          <p>Local browser backup. <strong id="leadCount">0</strong> leads.</p>
         </div>
+      </div>
 
-        <div class="table-actions">
-          <input id="searchInput" type="search" placeholder="Search name, phone or city">
-          <button id="exportBtn" class="secondary" type="button">Export CSV</button>
-          <button id="clearAllBtn" class="danger" type="button">Clear All</button>
-        </div>
+      <div class="filters">
+        <button class="filter-btn active" data-filter="all" type="button">All Leads</button>
+        <button class="filter-btn" data-filter="driver" type="button">🚛 Drivers</button>
+        <button class="filter-btn" data-filter="bike_rider" type="button">🏍️ Bike Riders</button>
+      </div>
+
+      <div class="table-actions">
+        <input id="searchInput" type="search" placeholder="Search name, phone or city">
+        <button id="exportBtn" class="secondary" type="button">Export CSV</button>
+        <button id="clearAllBtn" class="danger" type="button">Clear All</button>
       </div>
 
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Full Name</th>
-              <th>Phone Number</th>
+              <th>Type</th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Age / Experience</th>
               <th>City</th>
-              <th>Experience</th>
               <th>Licence</th>
+              <th>Bike</th>
               <th>Joining</th>
-              <th>Job Interest</th>
+              <th>Priority</th>
               <th>Status</th>
               <th>Action</th>
             </tr>
@@ -89,16 +97,11 @@
       </div>
 
       <div id="emptyState" class="empty-state hidden">
-        No saved leads found.
+        No saved leads found for this filter.
       </div>
     </section>
   </main>
 
-  <!--
-    Cross-origin form target.
-    The browser submits the form to Google Apps Script without
-    requiring the user to sign in to Google.
-  -->
   <iframe
     name="googleSheetTarget"
     id="googleSheetTarget"
