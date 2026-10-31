@@ -119,7 +119,8 @@ function doPost(e) {
       const row = [data.fullName, data.phone, data.city, data.bengaluruAvailable,
         data.licence, data.androidPhone, data.experience, data.joining,
         data.priority || "Low", data.status || "Not Open", data.age, data.bike];
-      sheet.appendRow(row.map(safe).concat([new Date()]));
+      const importedAt = Utilities.formatDate(new Date(), "Asia/Kolkata", "dd-MMM-yyyy HH:mm:ss") + " IST";
+      sheet.appendRow(row.map(safe).concat([importedAt]));
 
     }
 
