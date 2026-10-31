@@ -14,10 +14,10 @@ const DRIVER_SHEET_NAME =
 
 /* Bike Rider sheet */
 const BIKE_SPREADSHEET_ID =
-  "1lMj2VZb4g7-h-ZJ4815PKFJG28joqXtFmX76GOol5e8";
+  "1ESrzl-G6pUz7TIeA1XL3X7I7qK9f0Yur4FNfShSHI1g";
 
 const BIKE_SHEET_NAME =
-  "Cleaned Leads";
+  "Sheet1";
 
 
 function doPost(e) {
@@ -39,10 +39,7 @@ function doPost(e) {
       "Lead type: " + leadType
     );
 
-    console.log(
-      "Received data: " +
-      JSON.stringify(data)
-    );
+
 
 
     /* =====================================================
@@ -113,23 +110,17 @@ function doPost(e) {
         );
       }
 
-      const row = [
-        data.fullName || "",
-        data.phone || "",
-        data.age || "",
-        data.licence || "",
-        data.bike || "",
-        data.joining || "",
-        data.priority || "Low",
-        data.status || "Not Open"
-      ];
+      if (!data.fullName || !data.phone) throw new Error("Name and phone are required");
+      const headers = ["Full name", "Phone number", "City", "Available to work in Bengaluru", "Valid two-wheeler licence", "Android smartphone", "Delivery riding experience", "Joining availability", "Priority", "Status", "Age (optional)", "Own bike (optional)", "Imported at"];
+      if (sheet.getLastRow() === 0) sheet.appendRow(headers);
+      const actual = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+      if (headers.some((h, i) => actual[i] !== h)) throw new Error("Rider sheet headers do not match. Check the configured destination.");
+      const safe = value => /^[=+@-]/.test(String(value || "")) ? "'" + value : String(value || "");
+      const row = [data.fullName, data.phone, data.city, data.bengaluruAvailable,
+        data.licence, data.androidPhone, data.experience, data.joining,
+        data.priority || "Low", data.status || "Not Open", data.age, data.bike];
+      sheet.appendRow(row.map(safe).concat([new Date()]));
 
-      sheet.appendRow(row);
-
-      console.log(
-        "Bike Rider lead inserted: " +
-        JSON.stringify(row)
-      );
     }
 
 
@@ -190,69 +181,3 @@ function doGet() {
 }
 
 
-/*
-  Manual Driver test.
-*/
-function testDriverAppend() {
-
-  const spreadsheet =
-    SpreadsheetApp.openById(
-      DRIVER_SPREADSHEET_ID
-    );
-
-  const sheet =
-    spreadsheet.getSheetByName(
-      DRIVER_SHEET_NAME
-    );
-
-  if (!sheet) {
-    throw new Error(
-      "Driver sheet not found"
-    );
-  }
-
-  sheet.appendRow([
-    "TEST DRIVER",
-    "+910000000000",
-    "Test City",
-    "2–5 years",
-    "Yes",
-    "Immediately",
-    "Test lead",
-    "New"
-  ]);
-}
-
-
-/*
-  Manual Bike Rider test.
-*/
-function testBikeRiderAppend() {
-
-  const spreadsheet =
-    SpreadsheetApp.openById(
-      BIKE_SPREADSHEET_ID
-    );
-
-  const sheet =
-    spreadsheet.getSheetByName(
-      BIKE_SHEET_NAME
-    );
-
-  if (!sheet) {
-    throw new Error(
-      "Bike Rider sheet not found"
-    );
-  }
-
-  sheet.appendRow([
-    "TEST BIKE RIDER",
-    "+910000000001",
-    "36+",
-    "Yes",
-    "Yes",
-    "Immediately",
-    "High",
-    "Not Open"
-  ]);
-}
