@@ -32,30 +32,18 @@ H Status
 
 ## Bike Rider Google Sheet
 
-Spreadsheet ID:
-1lMj2VZb4g7-h-ZJ4815PKFJG28joqXtFmX76GOol5e8
+Spreadsheet ID: 1ESrzl-G6pUz7TIeA1XL3X7I7qK9f0Yur4FNfShSHI1g
+Tab: Sheet1
 
-Tab:
-Cleaned Leads
+Columns, in order: Full name, Phone number, City, Available to work in Bengaluru,
+Valid two-wheeler licence, Android smartphone, Delivery riding experience,
+Joining availability, Priority, Status, Age (optional), Own bike (optional), Imported at.
 
-Columns:
-A Name
-B Phone
-C Age
-D Licence
-E Bike
-F Joining Time
-G Priority
-H Status
-
-## Bike Rider priority rules
-
-1. Licence Yes + Bike Yes + Immediately = High
-2. Any No + Immediately = Medium
-3. Licence Yes + Bike Yes + not Immediately = Medium
-4. Any No + not Immediately = Low
-
-The parser normalizes answers such as Yes, yes, YES and Yess to Yes.
+The current Bengaluru form and legacy rider form are supported. Markdown bold
+answers are cleaned. Age and own bike are optional for the current form.
+Current-form High priority requires Bengaluru availability, licence and Android
+all Yes plus immediate joining; otherwise all Yes is Medium, and any No is Low.
+Legacy priority retains licence + bike + joining rules.
 
 ## Default status
 
@@ -67,7 +55,13 @@ Not Open
 
 ## Deployment
 
-The existing Google Apps Script Web App endpoint is already configured in script.js.
+The existing Google Apps Script Web App endpoint is configured in script.js.
+Updating GitHub does NOT deploy Apps Script. Copy google-apps-script/Code.gs into
+the existing Apps Script project and deploy a new version before importing riders.
+The deploying Google account must have edit access to the destination sheet.
+The hidden iframe cannot confirm the response; the UI reports submission as
+unconfirmed. Check the sheet before retrying. Use Process Lead then Add Lead.
+Do not insert the example candidate as a real lead unless intended.
 
 After replacing Code.gs:
 Deploy → Manage deployments → Edit → New version → Deploy
@@ -98,3 +92,4 @@ Apps Script functions:
 - testBikeRiderAppend()
 
 Run them manually if you want to verify write permissions to each spreadsheet.
+
