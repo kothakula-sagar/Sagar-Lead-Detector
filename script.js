@@ -78,8 +78,12 @@ function normalize(value) {
     .trim();
 }
 
+function cleanAnswer(value) {
+  return String(value || "").replace(/\*\*|__/g, "").trim().replace(/^[“”"]+|[“”"]+$/g, "").trim();
+}
+
 function findAnswer(text, labels) {
-  const lines = text.split(/\r?\n/);
+  const lines = text.split(/\r?\n/).map(cleanAnswer);
   const normalizedLabels = labels.map(normalize);
 
   for (let i = 0; i < lines.length; i++) {
@@ -101,6 +105,7 @@ function findAnswer(text, labels) {
 
     for (let j = i + 1; j < lines.length; j++) {
       if (lines[j].trim()) {
+        if (/\?$/.test(lines[j]) || /^(full name|phone number|city|age)$/i.test(lines[j])) return "";
         return lines[j].trim();
       }
     }
@@ -172,6 +177,9 @@ function detectLeadType(text) {
     );
 
   const isBikeRider =
+    normalizedText.includes("do you have a valid two-wheeler driving licence?") ||
+    normalizedText.includes("how much delivery riding experience do you have?") ||
+    normalizedText.includes("do you have an android smartphone available for work?") ||
     normalizedText.includes(
       normalize("Do you have your own bike/motorcycle?")
     ) ||
@@ -236,11 +244,16 @@ function parseDriverLead(text) {
 }
 
 function parseBikeRiderLead(text) {
-  const licence = findAnswer(text, [
+  const bengaluruAvailable = normalizeYesNo(findAnswer(text, ["Are you available to work in Bengaluru?"]));
+  const androidPhone = normalizeYesNo(findAnswer(text, ["Do you have an Android smartphone available for work?"]));
+  const experience = findAnswer(text, ["How much delivery riding experience do you have?"]);
+  const city = findAnswer(text, ["City", "Location", "Current city"]);
+  const licence = normalizeYesNo(findAnswer(text, [
+    "Do you have a valid two-wheeler Driving Licence?",
     "Do you have a valid driving licence?",
     "valid driving licence",
     "driving licence"
-  ]);
+  ]));
 
   const bike = findAnswer(text, [
     "Do you have your own bike/motorcycle?",
@@ -250,6 +263,7 @@ function parseBikeRiderLead(text) {
   ]);
 
   const joining = findAnswer(text, [
+    "When can you join if selected?",
     "When can you join?",
     "when can you join",
     "when can i join"
@@ -257,13 +271,17 @@ function parseBikeRiderLead(text) {
 
   return {
     leadType: "bike_rider",
+    bengaluruAvailable, androidPhone, experience, city,
     fullName: findAnswer(text, ["Full name", "Name", "Full Name"]),
     phone: findAnswer(text, ["Phone number", "Phone", "Mobile number", "Mobile"]),
     age: findAnswer(text, ["Age", "Your age"]),
     licence,
     bike,
     joining,
-    priority: getPriority(licence, bike, joining),
+    priority: bengaluruAvailable || androidPhone
+      ? ([bengaluruAvailable, licence, androidPhone].every(v => v === "Yes")
+          ? (isImmediately(joining) ? "High" : "Medium") : "Low")
+      : getPriority(licence, bike, joining),
     status: "Not Open"
   };
 }
@@ -288,9 +306,15 @@ function validateLead(lead) {
   }
 
   if (lead.leadType === "bike_rider") {
-    if (!lead.age) missing.push("Age");
+    const newForm = !!(lead.bengaluruAvailable || lead.androidPhone || lead.experience);
+    if (newForm) {
+      if (!lead.bengaluruAvailable) missing.push("Bengaluru availability");
+      if (!lead.androidPhone) missing.push("Android smartphone");
+      if (!lead.experience) missing.push("Delivery riding experience");
+      if (!lead.city) missing.push("City");
+    } else if (!lead.age) missing.push("Age");
     if (!lead.licence) missing.push("Licence");
-    if (!lead.bike) missing.push("Bike");
+    if (!newForm && !lead.bike) missing.push("Bike");
     if (!lead.joining) missing.push("Joining");
   }
 
@@ -428,7 +452,11 @@ function renderPreview(lead) {
       ["Lead Type", "🏍️ Bike Rider"],
       ["Full name", lead.fullName],
       ["Phone number", lead.phone],
-      ["Age", lead.age],
+      ["City", lead.city],
+      ["Available in Bengaluru", lead.bengaluruAvailable],
+      ["Android smartphone", lead.androidPhone],
+      ["Delivery experience", lead.experience],
+      ["Age (if provided)", lead.age],
       ["Licence", lead.licence],
       ["Own bike", lead.bike],
       ["Joining time", lead.joining],
@@ -506,12 +534,10 @@ function renderLeads() {
           : "type-driver";
 
         const ageExperience = isBike
-          ? lead.age || ""
+          ? lead.experience || lead.age || ""
           : lead.experience || "";
 
-        const city = isBike
-          ? "-"
-          : lead.city || "";
+        const city = lead.city || "";
 
         const bike = isBike
           ? lead.bike || ""
@@ -727,6 +753,8 @@ function sendToGoogleSheet(lead) {
 
       const fields = {
         leadType: lead.leadType,
+        bengaluruAvailable: lead.bengaluruAvailable || "",
+        androidPhone: lead.androidPhone || "",
         fullName: lead.fullName,
         phone: lead.phone,
 
@@ -780,7 +808,7 @@ function sendToGoogleSheet(lead) {
         form.remove();
 
         showMessage(
-          `✅ ${leadTypeLabel(lead.leadType)} lead sent to Google Sheets successfully.`
+          `Submission sent. Google Sheets receipt is unconfirmed; check the destination sheet before retrying.`
         );
 
         resolve(true);
@@ -884,7 +912,7 @@ function exportCSV() {
       "Joining",
       "Job Interest",
       "Priority",
-      "Status"
+      "Status", "Available in Bengaluru", "Android smartphone"
     ],
 
     ...leads.map((lead) => [
@@ -901,7 +929,7 @@ function exportCSV() {
       lead.joining || "",
       lead.jobInterest || "",
       lead.priority || "",
-      lead.status || ""
+      lead.status || "", lead.bengaluruAvailable || "", lead.androidPhone || ""
     ])
   ];
 
@@ -1054,3 +1082,4 @@ document
 ========================================================= */
 
 renderLeads();
+
