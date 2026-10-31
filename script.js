@@ -6,7 +6,7 @@ const STORAGE_KEY = "driverLeadImporter.leads.v2";
   to their respective spreadsheets.
 */
 const GOOGLE_SHEET_ENDPOINT =
-  "https://script.google.com/macros/s/AKfycbyHnVPsx-jXiX7IIma1-0HQ9J3Rha9-0RFzAPTI4q_wWrRWpidT0OYFO_QQyrQgAn-BdA/exec";
+  "https://script.google.com/macros/s/AKfycbxKcZQXKjxyUibF2KiNhhu042WBA1y9twfTuGlPkYHBo9T2RvKDtOrMhhL-xaYnmbkw2Q/exec";
 
 const sampleDriver = `How many years of commercial driving experience do you have?
 
