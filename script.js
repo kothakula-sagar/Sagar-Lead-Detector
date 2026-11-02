@@ -525,7 +525,16 @@ function renderLeads() {
   const searchValue = $("searchInput").value;
   const query = normalize(searchValue);
 
-  const allLeads = getLeads();
+  const allLeads = getLeads().map((lead, index) => ({lead, index}))
+    .sort((a, b) => {
+      const aTime = Date.parse(a.lead.createdAt) || 0;
+      const bTime = Date.parse(b.lead.createdAt) || 0;
+      return bTime - aTime || b.index - a.index;
+    }).map(item => item.lead);
+  $("totalLeadCount").textContent = allLeads.length;
+  $("riderLeadCount").textContent = allLeads.filter(lead => lead.leadType === "bike_rider").length;
+  $("deliveryLeadCount").textContent = allLeads.filter(lead => lead.leadType === "delivery_driver").length;
+  $("driverLeadCount").textContent = allLeads.filter(lead => !lead.leadType || lead.leadType === "driver").length;
 
   const filtered = allLeads.filter((lead) => {
     const typeMatches =
