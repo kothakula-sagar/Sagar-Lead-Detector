@@ -355,3 +355,10 @@ td input.status {
     max-height: 480px;
   }
 }
+
+.lead-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.summary-card { margin-bottom:0; display:flex; flex-direction:column; gap:10px; }
+.summary-card span { color:#68748a; font-size:14px; font-weight:600; }
+.summary-card strong { font-size:36px; color:#315ca9; }
+.summary-note { color:#68748a; font-size:13px; margin:12px 0 24px; }
+@media (max-width:720px) { .lead-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } }
