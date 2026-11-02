@@ -97,7 +97,8 @@ function findAnswer(text, labels) {
 
     if (!match) continue;
 
-    const colonIndex = lines[i].indexOf(":");
+    const matchedLabel = normalizedLabels.find(label => line === label || line.startsWith(label + ":"));
+    const colonIndex = line === matchedLabel ? -1 : lines[i].lastIndexOf(":");
 
     if (colonIndex >= 0 && lines[i].slice(colonIndex + 1).trim()) {
       return lines[i].slice(colonIndex + 1).trim();
@@ -168,6 +169,8 @@ function getPriority(licence, bike, joining) {
 
 function detectLeadType(text) {
   const normalizedText = normalize(text);
+  if (normalizedText.includes("which vehicle can you drive with a valid licence?") ||
+      normalizedText.includes("are you ready to both drive and deliver parcels in bangalore?")) return "delivery_driver";
 
   const isDriver =
     normalizedText.includes(
@@ -287,6 +290,21 @@ function parseBikeRiderLead(text) {
 }
 
 
+function parseDeliveryDriverLead(text) {
+  return {
+    leadType: "delivery_driver",
+    fullName: findAnswer(text, ["Full name", "Name"]),
+    phone: findAnswer(text, ["Phone number", "Mobile number", "Phone"]),
+    city: findAnswer(text, ["City", "Current city"]),
+    vehicle: findAnswer(text, ["Which vehicle can you drive with a valid licence?"]),
+    deliveryAgreement: findAnswer(text, ["Are you ready to BOTH drive and deliver parcels in Bangalore?"]),
+    requirements: findAnswer(text, ["Do you have all these requirements: Aadhaar, PAN, a suitable valid driving licence and an Android smartphone?"]),
+    joining: findAnswer(text, ["When can you join?"]),
+    hrConsent: findAnswer(text, ["Having read the salary range and job details, are you ready for an HR call and document verification?"]),
+    status: "New"
+  };
+}
+
 /* =========================================================
    VALIDATION
 ========================================================= */
@@ -296,6 +314,12 @@ function validateLead(lead) {
 
   if (!lead.fullName) missing.push("Full name");
   if (!lead.phone) missing.push("Phone number");
+
+  if (lead.leadType === "delivery_driver") {
+    for (const [key, label] of Object.entries({city:"City", vehicle:"Vehicle", deliveryAgreement:"Drive and deliver agreement", requirements:"Documents and smartphone", joining:"Joining", hrConsent:"HR verification consent"})) {
+      if (!lead[key]) missing.push(label);
+    }
+  }
 
   if (lead.leadType === "driver") {
     if (!lead.city) missing.push("City");
@@ -427,6 +451,7 @@ function escapeAttr(value) {
 }
 
 function leadTypeLabel(type) {
+  if (type === "delivery_driver") return "🚚 Delivery-cum-Driver";
   return type === "bike_rider"
     ? "🏍️ Bike Rider"
     : "🚛 Driver";
@@ -447,6 +472,11 @@ function renderPreview(lead) {
       ["Job interest", lead.jobInterest],
       ["Status", lead.status]
     ];
+  } else if (lead.leadType === "delivery_driver") {
+    fields = [["Lead Type", leadTypeLabel(lead.leadType)], ["Full name", lead.fullName],
+      ["Phone number", lead.phone], ["City", lead.city], ["Vehicle", lead.vehicle],
+      ["Drive and deliver agreement", lead.deliveryAgreement], ["Documents and Android", lead.requirements],
+      ["Joining", lead.joining], ["HR call and verification", lead.hrConsent], ["Status", lead.status]];
   } else {
     fields = [
       ["Lead Type", "🏍️ Bike Rider"],
@@ -682,7 +712,9 @@ function processLead() {
   }
 
   const lead =
-    leadType === "driver"
+    leadType === "delivery_driver"
+      ? parseDeliveryDriverLead(text)
+      : leadType === "driver"
       ? parseDriverLead(text)
       : parseBikeRiderLead(text);
 
@@ -753,6 +785,10 @@ function sendToGoogleSheet(lead) {
 
       const fields = {
         leadType: lead.leadType,
+        vehicle: lead.vehicle || "",
+        deliveryAgreement: lead.deliveryAgreement || "",
+        requirements: lead.requirements || "",
+        hrConsent: lead.hrConsent || "",
         bengaluruAvailable: lead.bengaluruAvailable || "",
         androidPhone: lead.androidPhone || "",
         fullName: lead.fullName,
@@ -912,13 +948,11 @@ function exportCSV() {
       "Joining",
       "Job Interest",
       "Priority",
-      "Status", "Available in Bengaluru", "Android smartphone"
+      "Status", "Available in Bengaluru", "Android smartphone", "Vehicle", "Drive and deliver agreement", "Documents and Android", "HR verification consent"
     ],
 
     ...leads.map((lead) => [
-      lead.leadType === "bike_rider"
-        ? "Bike Rider"
-        : "Driver",
+      leadTypeLabel(lead.leadType),
       lead.fullName,
       lead.phone,
       lead.age || "",
@@ -929,7 +963,7 @@ function exportCSV() {
       lead.joining || "",
       lead.jobInterest || "",
       lead.priority || "",
-      lead.status || "", lead.bengaluruAvailable || "", lead.androidPhone || ""
+      lead.status || "", lead.bengaluruAvailable || "", lead.androidPhone || "", lead.vehicle || "", lead.deliveryAgreement || "", lead.requirements || "", lead.hrConsent || ""
     ])
   ];
 
@@ -1082,4 +1116,5 @@ document
 ========================================================= */
 
 renderLeads();
+
 
