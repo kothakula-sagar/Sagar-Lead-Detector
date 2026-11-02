@@ -125,6 +125,21 @@ function doPost(e) {
     }
 
 
+    else if (leadType === "delivery_driver") {
+      const spreadsheet = SpreadsheetApp.openById("1e4Nw69OnTQWCaQxoHTWTnykwC-sBkPKC4gpsh7HbrWY");
+      const sheet = spreadsheet.getSheetByName("Sheet1");
+      if (!sheet) throw new Error("Delivery driver tab not found");
+      const headers = ["Full name", "Phone number", "City", "Vehicle with valid licence", "Drive and deliver agreement", "Documents and Android smartphone", "Joining availability", "HR call and verification consent", "Status", "Imported at (IST)"];
+      const keys = ["fullName", "phone", "city", "vehicle", "deliveryAgreement", "requirements", "joining", "hrConsent"];
+      if (keys.some(key => !data[key])) throw new Error("Missing delivery driver fields");
+      if (sheet.getLastRow() === 0) sheet.appendRow(headers);
+      const actual = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+      if (headers.some((h, i) => actual[i] !== h)) throw new Error("Delivery driver headers do not match");
+      const safe = value => /^[=+@-]/.test(String(value || "")) ? "'" + value : String(value || "");
+      const importedAt = Utilities.formatDate(new Date(), "Asia/Kolkata", "dd-MMM-yyyy HH:mm:ss") + " IST";
+      sheet.appendRow(keys.map(key => safe(data[key])).concat([safe(data.status || "New"), importedAt]));
+    }
+
     /* =====================================================
        UNKNOWN
     ===================================================== */
@@ -180,5 +195,6 @@ function doGet() {
       ContentService.MimeType.TEXT
     );
 }
+
 
 
